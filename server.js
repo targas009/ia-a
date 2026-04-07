@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const app = express();
@@ -57,12 +58,11 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// Rota para servir o frontend
-app.use(express.static('public'));
+// ✅ Render-Ready: Static files + SPA fallback
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Rota inicial
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/public/index.html');
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(PORT, () => {
