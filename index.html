@@ -143,12 +143,27 @@
             border-radius: 10px;
             margin: 10px 0;
         }
+
+        /* Render detection */
+        .render-notice {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            text-align: center;
+            font-size: 0.9em;
+            margin: 10px;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
     <div class="chat-container">
         <div class="chat-header">
             💻 Chat com Prof. Gemini - Seu Professor de Programação 🤖
+            <div style="font-size: 0.6em; opacity: 0.8;">
+                <span id="env-info">Carregando...</span>
+            </div>
         </div>
         
         <div class="chat-messages" id="messages">
@@ -171,10 +186,35 @@
         const messages = document.getElementById('messages');
         const messageInput = document.getElementById('messageInput');
         const sendButton = document.getElementById('sendButton');
+        const envInfo = document.getElementById('env-info');
 
-        // Detectar Enter para enviar
+        // 🌐 URL INTELIGENTE: Detecta Localhost vs Render automaticamente!
+        const getBackendUrl = () => {
+            const port = window.location.port;
+            
+            // Render usa portas 10000+
+            if (port && parseInt(port) >= 10000) {
+                return '/api/chat'; // Mesmo domínio (funciona no Render)
+            }
+            
+            // Localhost ou produção normal
+            return '/api/chat'; // Relativo sempre funciona!
+        };
+
+        // Detecta ambiente
+        const isRender = window.location.port && parseInt(window.location.port) >= 10000;
+        envInfo.textContent = isRender ? '🌐 Render Cloud' : '🏠 Localhost';
+
+        if (isRender) {
+            const notice = document.createElement('div');
+            notice.className = 'render-notice';
+            notice.innerHTML = '✅ Deploy Render detectado! API integrada.';
+            messages.appendChild(notice);
+        }
+
+        // Enter para enviar
         messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
+            if (e.key === 'Enter') {
                 e.preventDefault();
                 sendMessage();
             }
@@ -186,15 +226,18 @@
             const texto = messageInput.value.trim();
             if (!texto) return;
 
-            // Adicionar mensagem do usuário
+            // Mensagem usuário
             addMessage(texto, 'user');
             messageInput.value = '';
             sendButton.disabled = true;
-            sendButton.textContent = 'Pensando...';
+            sendButton.textContent = '🤔 Pensando...';
 
             try {
-                // Enviar para backend
-                const response = await fetch('/api/chat', {
+                // 🌐 Fetch URL adaptativa (local + Render)!
+                const backendUrl = getBackendUrl();
+                console.log('📡 Enviando para:', backendUrl);
+                
+                const response = await fetch(backendUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ pergunta: texto })
@@ -205,11 +248,11 @@
                 if (data.sucesso) {
                     addMessage(data.resposta, 'ai');
                 } else {
-                    addError(data.erro || 'Erro desconhecido');
+                    addError(data.erro || 'Erro da API');
                 }
             } catch (error) {
-                console.error('Erro:', error);
-                addError('Erro de conexão. Verifique se o servidor está rodando!');
+                console.error('Erro conexão:', error);
+                addError('❌ Sem conexão com servidor. Verifique se está rodando!');
             } finally {
                 sendButton.disabled = false;
                 sendButton.textContent = 'Enviar ➤';
@@ -238,7 +281,6 @@
             messages.scrollTop = messages.scrollHeight;
         }
 
-        // Foco automático no input
         messageInput.focus();
     </script>
 </body>
