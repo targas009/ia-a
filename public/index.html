@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat com Prof. Gemini 🤖</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chat-container {
+            width: 90%;
+            max-width: 800px;
+            height: 80vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9ff;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message.ai {
+            justify-content: flex-start;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 18px;
+            border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .message.ai .message-content {
+            background: white;
+            border: 1px solid #e1e8ff;
+            color: #333;
+        }
+
+        .message.typing .message-content {
+            background: #e1e8ff;
+            color: #666;
+            font-style: italic;
+        }
+
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+        }
+
+        #messageInput {
+            flex: 1;
+            padding: 12px 20px;
+            border: 2px solid #e1e8ff;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #messageInput:focus {
+            border-color: #4facfe;
+        }
+
+        #sendButton {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        #sendButton:hover {
+            transform: scale(1.05);
+        }
+
+        #sendButton:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .error {
+            background: #ff6b6b;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        /* Render detection */
+        .render-notice {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            text-align: center;
+            font-size: 0.9em;
+            margin: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            💻 Chat com Prof. Gemini - Seu Professor de Programação 🤖
+            <div style="font-size: 0.6em; opacity: 0.8;">
+                <span id="env-info">Carregando...</span>
+            </div>
+        </div>
+        
+        <div class="chat-messages" id="messages">
+            <div class="message ai">
+                <div class="message-content">
+                    👋 Olá! Sou o Prof. Gemini, seu professor particular de programação. 
+                    Me pergunte qualquer coisa sobre Node.js, JavaScript, APIs, ou qualquer tema tech! 
+                    Vamos aprender juntos? 🚀
+                </div>
+            </div>
+        </div>
+        
+        <div class="chat-input">
+            <input type="text" id="messageInput" placeholder="Digite sua pergunta sobre programação..." maxlength="1000">
+            <button id="sendButton">Enviar ➤</button>
+        </div>
+    </div>
+
+    <script>
+        const messages = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const envInfo = document.getElementById('env-info');
+
+        // 🌐 URL INTELIGENTE: Detecta Localhost vs Render automaticamente!
+        const getBackendUrl = () => {
+            const port = window.location.port;
+            
+            // Render usa portas 10000+
+            if (port && parseInt(port) >= 10000) {
+                return '/api/chat'; // Mesmo domínio (funciona no Render)
+            }
+            
+            // Localhost ou produção normal
+            return '/api/chat'; // Relativo sempre funciona!
+        };
+
+        // Detecta ambiente
+        const isRender = window.location.port && parseInt(window.location.port) >= 10000;
+        envInfo.textContent = isRender ? '🌐 Render Cloud' : '🏠 Localhost';
+
+        if (isRender) {
+            const notice = document.createElement('div');
+            notice.className = 'render-notice';
+            notice.innerHTML = '✅ Deploy Render detectado! API integrada.';
+            messages.appendChild(notice);
+        }
+
+        // Enter para enviar
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        sendButton.addEventListener('click', sendMessage);
+
+        async function sendMessage() {
+            const texto = messageInput.value.trim();
+            if (!texto) return;
+
+            // Mensagem usuário
+            addMessage(texto, 'user');
+            messageInput.value = '';
+            sendButton.disabled = true;
+            sendButton.textContent = '🤔 Pensando...';
+
+            try {
+                // 🌐 Fetch URL adaptativa (local + Render)!
+                const backendUrl = getBackendUrl();
+                console.log('📡 Enviando para:', backendUrl);
+                
+                const response = await fetch(backendUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pergunta: texto })
+                });
+
+                const data = await response.json();
+
+                if (data.sucesso) {
+                    addMessage(data.resposta, 'ai');
+                } else {
+                    addError(data.erro || 'Erro da API');
+                }
+            } catch (error) {
+                console.error('Erro conexão:', error);
+                addError('❌ Sem conexão com servidor. Verifique se está rodando!');
+            } finally {
+                sendButton.disabled = false;
+                sendButton.textContent = 'Enviar ➤';
+                messageInput.focus();
+            }
+        }
+
+        function addMessage(texto, tipo) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${tipo}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = texto;
+            
+            messageDiv.appendChild(contentDiv);
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function addError(erro) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = `❌ ${erro}`;
+            messages.appendChild(errorDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        messageInput.focus();
+    </script>
+</body>
+</html>
